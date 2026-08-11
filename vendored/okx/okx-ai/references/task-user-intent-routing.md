@@ -23,10 +23,10 @@ User-session needs to forward free-form user instructions targeting a specific t
    ```bash
    okx-a2a session send --no-wait \
      --job-id <jobId> --to-agent-id <counterpartyAgentId> \
-     --content '<user verbatim>
+     --content "<user verbatim>
 
    ---
-   Reply to the user via `onchainos agent user-notify --content "<localized natural-language reply>"`. If a user decision is needed (A/B/C / approve / reject / etc.), use `pending-decisions-v2 request` instead (see `task-user-sub-playbook.md` §Communication Contract).'
+   Reply to the user via `onchainos agent user-notify --content \"<localized natural-language reply>\"`. If a user decision is needed (A/B/C / approve / reject / etc.), use `pending-decisions-v2 request` instead (see `task-user-sub-playbook.md` §Communication Contract)."
    ```
 
    Forward verbatim then append reply-path instruction. End turn.
@@ -65,7 +65,7 @@ When the user asks for **their tasks list without a specific jobId**, the user s
 
 Render as numbered list. ❌ Do NOT 6-step forward. ❌ Do NOT mix with "decision list".
 
-⚠️ **Disambig — `所有任务` vs `我所有任务`**: "所有任务" = marketplace pool (→ `task-search`); "我所有任务" = own tasks (→ this section).
+⚠️ **`我所有任务` / `所有任务`**: both map to the caller's own tasks (→ this section). There is no public marketplace pool to browse.
 
 ---
 
@@ -93,14 +93,12 @@ Triggers (only when there's no active card the user might be answering):
 |-------------------------------------------------------------------------------|---|---|
 | Publish task — `发布任务` / `创建任务` / `帮我发任务` / `publish a task` / `create a task` | `onchainos agent next-action --role user --agentId <X> --message '{"event":"create_task","jobId":"_"}'` → follow script | user publish flow |
 | Designate an ASP — `指定卖家` / `use the service of Agent X`                      | Gather params → designated-provider flow | [`task-user-actions-publish.md`](task-user-actions-publish.md) §5 |
-| Find tasks (ASP) — `接单` / `找任务` / `start accepting jobs`                      | [`task-asp-accept.md`](task-asp-accept.md) §2 (Path A). Do NOT route to `task-search`. | task-asp-accept.md §2 |
-| Take specific task (ASP) — `接 {jobId}` / `contact the User Agent of {jobId}`  | `onchainos agent contact-user <jobId> --agent-id <chosen agentId>` (single CLI: session create + canonical opener) | task-asp-accept.md §3 |
-| Browse marketplace — `搜索任务` / `browse marketplace` / `按关键字搜任务`                | `onchainos agent task-search` | [`task-cli-reference.md#task-search`](task-cli-reference.md#task-search) |
+| Take specific task (ASP) — `接 {jobId}` / `contact the User Agent of {jobId}`  | No proactive-accept path — ASPs are passive; designated tasks arrive via system events. Reply with passive-readiness guidance and STOP. | task-asp-accept.md §1 |
 | Stake (Evaluator) — `I want to stake`                                         | `staking-config` + `my-stake` → confirm → `stake` (do NOT hardcode 100 OKB) | [`task-evaluator-staking.md §2`](task-evaluator-staking.md) |
 | Direct help — "help me check…" **without** hiring intent                      | Route to appropriate skill; do NOT suggest task creation | — |
 
-⚠️ **Disambig — `接单` vs `搜索任务`**: skill-profile match ("用 X 接单") → `recommend-task`; explicit filters → `task-search`.
-🛑 **ASP constraint**: "take task X" → must run `onchainos agent contact-user <jobId>` (cold-start opener) and wait for user designation; do NOT directly `apply` — `apply` is `JobAspSelected`-system-event-triggered only.
+⚠️ **`接单` / `找任务` / `start accepting jobs` with no jobId**: there is no discovery flow — the ASP is already online, and designated tasks arrive via system events. Reply "ASP is online; designated tasks targeted at it arrive via system events — provide a specific jobId to accept one" and STOP (passive readiness).
+🛑 **ASP constraint**: "take task X" → ASPs do NOT proactively contact users or discover tasks; reply with passive-readiness guidance and wait for the User Agent to designate this ASP on-chain. Do NOT directly `apply` — `apply` is `JobAspSelected`-system-event-triggered only.
 
 ---
 
@@ -108,7 +106,7 @@ Triggers (only when there's no active card the user might be answering):
 
 | Trigger | Action |
 |---|---|
-| **Chain-state snapshot** — `查询任务 {jobId}` / `what's the status of {jobId}` | `onchainos agent status <jobId>`. User session answers directly. |
+| **Chain-state snapshot** — `查询任务 {jobId}` / `what's the status of {jobId}` | `onchainos agent status <jobId> --agent-id <myAgentId>` (pass the user's own `agentId` from envelope context). User session answers directly. |
 | **Negotiation / chat-context detail** — `上次卖家说了什么` / `价格谈到多少了` | 6-step forward to sub (sub has chat history). |
 | `view deliverables` / `查看交付物` | `task-deliverable-list [--job-id <jobId>] --role <user|asp>` |
 | `upload evidence` / `补证据` | **Friendly-reject** — evidence auto-submitted by CLI on `job_disputed`. |
@@ -149,3 +147,18 @@ Triggers:
 🛑 Watch is itself a long-poll — the long-poll IS the wait. Do NOT wrap it in `/loop` / Cron / `sleep` / any scheduler.
 
 ⚠️ **Disambig — "decision list" vs "outstanding decisions"**: `决策列表` / `decision list` → §Decision list above (`pending-decisions-v2 list`, the full queue). `未决策` / `outstanding decisions` → this section (`outdated-list`, only un-`check`ed `decision_request` items).
+
+## Subscriptions (my subscriptions / detail)
+
+| Trigger | Action |
+|---|---|
+| `我的订阅` / `订阅列表` / `我订阅了哪些` / `my subscriptions` / `what am I subscribed to` | `onchainos agent my-subscriptions --role buyer` → render per [`task-user-playbook.md` §My Subscriptions](task-user-playbook.md). User session answers directly (do NOT 6-step forward). |
+| `订阅详情` / `这个订阅的详情` / `subscription detail` | `onchainos agent subscribe-detail <jobId>` (id = the row's `jobId`) → render per [`task-user-playbook.md` §Subscription Detail](task-user-playbook.md). |
+| 查看/列出我登录的设备、`设备列表`、`device list`、`哪些设备在线` | `onchainos agent device-list` → render per [`task-user-playbook.md` §Device List](task-user-playbook.md). |
+| `让这个设备开始接收 X 订阅的消息`、`在本机接收 X`、`start receiving X on this device` | [`task-user-playbook.md` §Subscription management](task-user-playbook.md) — fresh-read; `deviceList:null` already means default-all, so report already receiving without a write; otherwise union → overwrite → re-read. |
+| `让 X 也收`、`同时给 X 和 Y 推`、`start receiving Y on device X` | [`task-user-playbook.md` §Subscription management](task-user-playbook.md) — resolve device names→ids via `device-list` (never fabricate an unresolvable name); `deviceList:null` already includes every logged-in device (no write), otherwise UNION with the fresh-read list → overwrite → re-read → confirm the complete receiving set. |
+| `不要再把 X 推送到这个/某台设备`、`停止向 X 设备推送 Y`、`stop pushing Y to device` | [`task-user-playbook.md` §Subscription management](task-user-playbook.md) — fresh-read; for `null`, fetch the complete `device-list` and materialize all-minus-target before overwrite; for an explicit array, subtract normally; read back remaining. |
+| `离线消息别清了`、`改成补推`、`改成清理`、`离线消息帮我清理`、`change how offline deliverables are handled` | [`task-user-playbook.md` §Subscription management → 改离线交付物处理方式](task-user-playbook.md) — fresh-read `subscribe-detail` current `offlineReceiveFlag` → if already the target, say no change needed (do NOT re-write) → else `subscribe-offline-update --job-id <id> --flag <0/1>` → re-read to confirm. |
+| `监听任务` / `监听消息` 未指定具体任务 | [`task-user-playbook.md` §Listen entry](task-user-playbook.md) — confirm exactly one task (“一次只能监听一个”) → turn on this-device receipt → enter watch flow. |
+
+⚠️ Disambig — `我的订阅` (subscriptions) vs `我的任务` (tasks): subscriptions → `my-subscriptions`; tasks → `active-tasks` / `tasks` (§Task list). Do NOT mix. **Device routing is a subscription concept** — it governs A2A subscription-service message delivery only (never one-shot tasks), buyer side only. Do NOT route these to `task-asp.md` or any ASP/provider rendering.

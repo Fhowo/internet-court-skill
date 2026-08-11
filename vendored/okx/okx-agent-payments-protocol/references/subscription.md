@@ -9,7 +9,7 @@ The `period` scheme is recurring (subscription) billing. The buyer **subscribes 
 |---|---|
 | New `period` 402 offer, no active sub for this host | `payment subscription subscribe --accepts '<json>' --url <url>` |
 | Resource already has an active sub (check `my-subscriptions` first) | `payment subscription access --url <url>` — **never re-subscribe** |
-| Change-offer 402 (`extra.changeFrom`), upgrade/downgrade | `payment subscription change --accepts '<json>' --sub-id <cur>` |
+| Change-offer 402 (`extra.changeFrom`), upgrade/downgrade | `payment subscription access` (proof) → proof-carrying probe → `payment subscription change --accepts '<json>' --sub-id <cur>` (see `change` — never probe naked) |
 | Cancel an active sub | `payment subscription cancel --sub-id <s> --contract <c>` |
 | Revoke a scheduled (not-yet-effective) downgrade | `payment subscription cancel-pending --sub-id <s> --new-sub-id <n> --contract <c>` |
 | Inspect state / reconcile cache | `payment subscription my-subscriptions` · `payment subscription allowance-status --token <t>` |
@@ -21,6 +21,7 @@ The `period` scheme is recurring (subscription) billing. The buyer **subscribes 
 | Command | How to read the result |
 |---|---|
 | subscribe / change | replay `.data.paymentHeaderValue` under header `.data.paymentHeaderName` (`PAYMENT-SIGNATURE`); persist `.data.subId` (the CLI also caches host→subId) |
+| subscribe / change | on `… contract mismatch` in `.error`, treat as a hard security abort (exit 1) — the seller-declared contract did not match the authoritative `allowance-status`; do not retry or force |
 | access | replay `.data.accessHeaderValue` under `APP-Access`; `.data.source` (`cache` \| `override`) tells you whether the subId came from the local cache or `--sub-id` |
 | cancel / cancel-pending | relay the `.data.cancelAuth` / `.data.pendingChangeCancelAuth` object to the seller; the sub stays active/billable until the contract executes — the local cache is NOT flipped to canceled |
 | my-subscriptions | `.data.subscriptions[]` — each item's `state` is `0` pending / `1` active / `2` completed / `3` canceled / `4` changed / `99` failed; the local cache is reconciled from this authoritative state |
@@ -61,6 +62,13 @@ onchainos payment subscription allowance-status --token <addr> [--chain <name|in
 | `--from` | no | payer address; default = selected account |
 | `--url` | no | cache key for the resulting subscription |
 
+**Pre-flight probe (upgrade/downgrade) — carry an `APP-Access` proof, do NOT probe naked.** The change endpoint only returns a full change-offer with `extra.changeFrom` (the `direction` + `fromSubId` of the current subscription) when the probing request proves ownership of the current subscription. A **naked probe** (no proof) returns an offer **missing** `extra.changeFrom`, which fails `change` signing (`change` requires `--accepts` to carry `extra.changeFrom`) and forces a wasteful re-probe with the proof — one extra LLM round-trip + one extra CLI call. Always probe with the proof attached from the start:
+1. `payment subscription access --url <change endpoint>` — generates the current subscription's `APP-Access` proof (replay `.data.accessHeaderValue` under the `APP-Access` header).
+2. Probe the change endpoint **with that `APP-Access` header attached** → the 402 returns the change-offer carrying `extra.changeFrom` (matching `direction` / `fromSubId`) in a single probe.
+3. `payment subscription change --accepts '<that offer>' --sub-id <cur>` → sign.
+
+Required sequence: `access` (proof) → one proof-carrying probe of the change endpoint → `change`. Never do `naked probe → missing changeFrom → re-probe`.
+
 ### `cancel`
 | Param | Required | Description |
 |---|---|---|
@@ -98,6 +106,7 @@ onchainos payment subscription allowance-status --token <addr> [--chain <name|in
 ## Edge cases
 - `access` with no cached sub + no `--sub-id` → the error names the host; run `my-subscriptions` to reconcile the cache, or pass `--sub-id`.
 - `permit2Allowance` insufficient / `allowance_expired` → do the one-time `ERC20 → Permit2 approve` via the existing approve flow, then retry.
+- `subscription contract mismatch` / `permit2 contract mismatch` → **fail-closed security stop, not a transient error.** Before signing, `subscribe`/`change` cross-check the seller's `extra.contracts.subscription` / `extra.contracts.permit2` against the authoritative `allowance-status` values; on any mismatch — or a missing authoritative value — the command emits `{"ok": false, "error": "… contract mismatch: …"}` and exits `1` **before** any signature or approve. This is intentional (a tampered contract address). Do **NOT** retry, re-probe, or attempt to force it — abort and surface the mismatch to the user. There is no `--force` bypass (it is never a `confirming` gate).
 - `fixed_seconds` needs `periodSec > 0`; `calendar_month` needs `periodSec == 0` — an inconsistency errors out.
 - `cancel` does NOT stop billing locally — the sub stays active until the contract executes; `my-subscriptions` reconcile corrects the local cache later.
 - `cancel-pending` requires `--new-sub-id`, which must equal the on-chain pending `newSubId`.
@@ -105,6 +114,6 @@ onchainos payment subscription allowance-status --token <addr> [--chain <name|in
 
 ## Security
 - **TEE-only signing** — signatures are always produced by the logged-in wallet's TEE path; no plaintext key/mnemonic ever appears in code, logs, or output. The CLI never accepts a private key or a hand-crafted signature.
-- **No hardcoded contract addresses** — the subscription contract, Permit2, and token addresses all derive from the seller's 402 `extra.contracts` or the buyer-direct `allowance-status` response.
+- **Contract addresses verified against a trusted root** — before signing, `subscribe`/`change` cross-check the seller's `extra.contracts.subscription` / `extra.contracts.permit2` against the authoritative buyer-direct `allowance-status` (`subscriptionContract` / `permit2Contract`). Comparison is EVM checksum-insensitive; an empty/absent authoritative value fails closed (reject). On a match, the **authoritative** values are used as the Permit2 `spender`, the EIP-712 `verifyingContract`s, and the Layer-1 `approve` target — so a signed subscription is always anchored to the authoritative source, never an unverified seller declaration. (`cancel`/`cancel-pending` resolve the subscription contract from `allowance-status` when called with `--token`, or use the caller-supplied `--contract` verbatim (no cross-check) — acceptable because a `CancelAuth` / `PendingChangeCancelAuth` carries no transfer authority.)
 - **Bounded commitment** — the financial exposure is capped by the signed Permit2 `permit.amount` / `permit.expiration`; the pre-sign allowance check enforces the bound.
 - **Never re-subscribe** an already-active resource — `access` or `change` it instead.

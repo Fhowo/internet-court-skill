@@ -9,7 +9,7 @@
       "name": "internet-court",
       "source": "./",
       "description": "Entry point for Internet Court and the agentic economy stack: natural-language mandates, ERC-7710 delegated permissions, x402 payments, escrow, GenLayer dispute resolution, and the vendored protocol + connector skills it routes to.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "MIT"
     }
   ]

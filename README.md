@@ -35,7 +35,7 @@ behind one skill instead of a stack the agent has to wire up itself.
 | 2 | Negotiation | A2A | [`terminalskills/a2a-protocol/`](vendored/terminalskills/a2a-protocol/), [`openserv/openserv-multi-agent-workflows/`](vendored/openserv/openserv-multi-agent-workflows/) |
 | 3 | Contracts & obligations | ERC-7710, ERC-8183, Arkhai | [`arkhai/`](vendored/arkhai/) (Alkahest escrow, natural-language agreements, git escrow), [`metamask/smart-accounts-kit/`](vendored/metamask/smart-accounts-kit/) (ERC-7710 delegations); connector [`integrations/genlayer-erc7710-connector/`](integrations/genlayer-erc7710-connector/); ERC-8183 has no public skill yet |
 | 4 | Payment & escrow | x402, MPP, APP | [`coinbase/agentic-wallet/`](vendored/coinbase/agentic-wallet/), [`chaingpt/x402/`](vendored/chaingpt/x402/) + [`agent-wallet/`](vendored/chaingpt/agent-wallet/), [`okx/okx-agent-payments-protocol/`](vendored/okx/okx-agent-payments-protocol/), [`tempo/mppx/`](vendored/tempo/mppx/), [`nansen/nansen-mpp-payment/`](vendored/nansen/nansen-mpp-payment/), [`privy/`](vendored/privy/); connector [`integrations/x402-erc7710/`](integrations/x402-erc7710/) |
-| 5 | Execution | compute, data & value rails | [`0g/0g-compute/`](vendored/0g/0g-compute/), [`antseed/antseed-connect/`](vendored/antseed/antseed-connect/), [`lifi/`](vendored/lifi/), [`chainbase/web3-data/`](vendored/chainbase/web3-data/), [`heurist/`](vendored/heurist/), [`near/`](vendored/near/), [`starknet/`](vendored/starknet/), [`nansen/`](vendored/nansen/), OKX + AltLayer + BNB Chain packs |
+| 5 | Execution | compute, data & value rails | [`0g/0g-compute/`](vendored/0g/0g-compute/), [`antseed/antseed-connect/`](vendored/antseed/antseed-connect/), [`lifi/`](vendored/lifi/), [`chainbase/web3-data/`](vendored/chainbase/web3-data/), [`heurist/`](vendored/heurist/), [`near/`](vendored/near/), [`starknet/`](vendored/starknet/), [`solana/`](vendored/solana/), [`nansen/`](vendored/nansen/), OKX + AltLayer + BNB Chain packs |
 | 6 | Verification & disputes | GenLayer, Kleros, UMA | GenLayer dev skills + [`intelligent-oracle/`](vendored/intelligent-oracle/), [`kleros/`](vendored/kleros/) (curate, IPFS); connectors [`integrations/genlayer-intelligent-contracts/`](integrations/genlayer-intelligent-contracts/), [`integrations/genlayer-erc7710-connector/`](integrations/genlayer-erc7710-connector/); UMA has no public skill yet |
 
 The verification & disputes layer is the one Internet Court exists to add.
@@ -65,7 +65,7 @@ set available in this repository today, and it grows as members publish.
 ```
 SKILL.md                            Master skill — start here; routes to everything below
 integrations/                       Internet Court connector & adapter skills
-vendored/                           Committed copies of official protocol skills (69 skills, 23 owners)
+vendored/                           Committed copies of official protocol skills (90 skills, 32 owners)
 skills-lock.json                    Pinned source + hash + refresh command per vendored skill
 ```
 
@@ -82,9 +82,11 @@ Two kinds of content:
 |---|---|---|
 | GenLayer | `write-contract`, `genlayer-cli`, `direct-tests`, `integration-tests`, `genvm-lint` | [genlayerlabs/skills](https://github.com/genlayerlabs/skills) · [skills.genlayer.com](https://skills.genlayer.com/) |
 | MetaMask | `smart-accounts-kit` (ERC-4337/7710/7715 delegations) | [metamask/skills](https://github.com/metamask/skills) |
-| OKX OnchainOS | 8 `okx-*` skills incl. `okx-agent-payments-protocol` (x402/MPP), `okx-agentic-wallet`, `okx-dex`, `okx-defi` | [okx/onchainos-skills](https://github.com/okx/onchainos-skills) |
+| OKX OnchainOS | 9 `okx-*` skills incl. `okx-agent-payments-protocol` (x402/MPP), `okx-agentic-wallet`, `okx-dex-market`, `okx-defi` | [okx/onchainos-skills](https://github.com/okx/onchainos-skills) |
 | NEAR | 6 `near-*` skills (`near-intents`, `near-ai-cloud`, `near-kit`, `near-dapp`, `near-api-js`, `near-smart-contracts`) | [near/agent-skills](https://github.com/near/agent-skills) |
 | Starknet | `starknet-defi`, `starknet-dex` … `starknet-identity`, `starknet-wallet`, `starknet-js` | [keep-starknet-strange/starknet-agentic](https://github.com/keep-starknet-strange/starknet-agentic) |
+| Solana | `solana-dev` — one catch-all Foundation skill (Anchor/Pinocchio programs, SPL payments, RPC lookups, security/testing) | [solana-foundation/solana-dev-skill](https://github.com/solana-foundation/solana-dev-skill) · [solana.com/skills](https://solana.com/skills) |
+| Solana agent-commerce (community) | 19 skills across 8 owners from the [solana.com/skills](https://solana.com/skills) community catalog — `sendaifun/*` (Squads, Pyth, Switchboard, Helius, Birdeye, deBridge, MetEngine, GLAM, Agent Kit), `magicblock/*`, `quicknode/*`, `jupiter/*`, `octav/*`, `dflow/*`, `metaplex/*`, `pnp/*` | [sendaifun/skills](https://github.com/sendaifun/skills) · [magicblock-labs](https://github.com/magicblock-labs/magicblock-dev-skill) · [quiknode-labs](https://github.com/quiknode-labs/blockchain-skills) · [jup-ag](https://github.com/jup-ag/agent-skills) · [Octav-Labs](https://github.com/Octav-Labs/octav-api-skill) · [DFlowProtocol](https://github.com/DFlowProtocol/dflow_phantom-connect-skill) · [metaplex-foundation](https://github.com/metaplex-foundation/skill) · [pnp-protocol](https://github.com/pnp-protocol/solana-skill) |
 | Coinbase (x402) | `agentic-wallet` (x402 pay/search/monetize) | [coinbase/agentic-wallet-skills](https://github.com/coinbase/agentic-wallet-skills) |
 | 0G | `0g-compute` (verifiable decentralized inference) | [0gfoundation/0g-compute-skills](https://github.com/0gfoundation/0g-compute-skills) |
 | Nansen | 7 `nansen-*` skills (token research, wallet profiler, smart-money, holder analysis, prediction markets, MPP payment, search) | [nansen-ai/nansen-cli](https://github.com/nansen-ai/nansen-cli) |

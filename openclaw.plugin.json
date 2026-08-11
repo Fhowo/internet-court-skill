@@ -2,7 +2,7 @@
   "id": "internet-court",
   "name": "Internet Court",
   "description": "Internet Court \u2014 the trust layer for agent-to-agent commerce.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "skills": [
     "./"
   ],

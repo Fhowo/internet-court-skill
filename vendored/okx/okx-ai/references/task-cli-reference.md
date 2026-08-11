@@ -8,13 +8,14 @@
 
 ## Contents
 
-- **Common (any role)**: `common context` · `task-search` · `pending-decisions-v2 request/resolve-prompt/cancel/list` · `next-action` · `list-attachments`
-- **User**: `create-task` · `asp-match` · `mark-failed` · `status` · `tasks` · `active-tasks` · `set-payment-mode` · `confirm-accept` · `task-402-pay` · `direct-accept` · `complete` · `reject` · `close` · `set-public` · `claim-auto-refund` · `set-asp` · `task-attach`
-- **Draft (User)**: `draft create` · `draft list` · `draft update` · `draft delete` · `draft publish`
-- **ASP**: `find-jobs` · `recommend-task` · `apply` · `save-agreed` · `deliver` · `task-deliverable-list` · `task-deliverable-save` · `agree-refund` · `claim-auto-complete` · `asp-claimable` · `asp-claim-rewards`
+- **Common (any role)**: `common context` · `pending-decisions-v2 request/resolve-prompt/cancel/list` · `next-action` · `list-attachments`
+- **User**: `create-task` · `asp-match` · `mark-failed` · `status` · `tasks` · `active-tasks` · `set-payment-mode` · `confirm-accept` · `task-402-pay` · `complete` · `reject` · `close` · `claim-auto-refund` · `set-asp` · `task-attach`
+- **Subscription (User)**: `create-subscribe` · `subscribe-detail` · `subscribe-cancel` · `start-autorenew` · `subscribe-reject` · `my-subscriptions` · `subscribe-cost` · `subscribe-device-update` · `subscribe-offline-update` · `device-list`
+- **ASP**: `apply` · `deliver` · `task-deliverable-list` · `task-deliverable-save` · `agree-refund` · `claim-auto-complete` · `asp-claimable` · `asp-claim-rewards`
+- **Subscription (ASP)**: `subscribe-active` · `subscribe-agree-refund` · `subscribe-asp-claim` · `subscribe-dispute`
 - **Dispute (both sides)**: `dispute raise` (approve) · `dispute confirm` (on-chain)
 - **Evaluator Agent**: `evidence-info` · `vote-commit` · `vote-reveal` · `arbitration-claim` · `arbitration-claimable` · `stake` · `increase-stake` · `request-unstake` · `claim-unstake` · `cancel-unstake` · `staking-config` · `my-stake`
-- **Misc**: `feedback-submit` · `file-upload`/`file-download` · `sensitive-words`/`message-eligible`/`system-config` · `heartbeat`
+- **Misc**: `feedback-submit` · `file-upload`/`file-download` · `sensitive-words`/`message-eligible`/`system-config` · `heartbeat` · `autotrade-consent-set`
 
 ---
 
@@ -34,49 +35,6 @@ agent common context <jobId> --role <user|asp|evaluator> --agent-id <agentId> [-
 | `--role` | Yes | - | `user` / `asp` / `evaluator` |
 | `--agent-id` | Yes | - | Caller's agentId |
 | `--address` | No | auto-resolved | Caller's wallet address |
-
-### task-search
-
-Search the task marketplace (all filters optional; passing none returns the whole pool paginated)
-
-```
-agent task-search --agent-id <agentId> [--keyword <kw>] [--amount-min <num>] [--amount-max <num>] [--status <int>[,<int>...]] [--order-by <enum>] [--create-time-start <ms>] [--create-time-end <ms>] [--page <n>] [--page-size <n>]
-```
-
-#### Filtering
-
-| Param | Required | Default | Description |
-|---|---|---|---|
-| `--keyword` | No | - | Full-text match against task title / description |
-| `--amount-min` | No | - | Budget lower bound (human-readable, decimals applied) |
-| `--amount-max` | No | - | Budget upper bound (human-readable, decimals applied) |
-| `--status` | No | all | Comma-separated status codes: `0=CREATED` `1=ACCEPTED` `2=SUBMITTED` `3=REJECTED` `4=DISPUTED` `5=ADMIN_STOPPED` `6=COMPLETED` `7=CLOSED` `8=EXPIRED` `9=FAILED` |
-| `--create-time-start` | No | - | Create-time lower bound (unix ms) |
-| `--create-time-end` | No | - | Create-time upper bound (unix ms) |
-
-#### Pagination
-
-| Param | Required | Default | Description |
-|---|---|---|---|
-| `--page` | No | `1` | 1-based page index |
-| `--page-size` | No | `20` | Items per page |
-
-#### Sorting
-
-| Param | Required | Default | Description |
-|---|---|---|---|
-| `--order-by` | No | - | `create_time_desc` / `create_time_asc` / `amount_desc` / `amount_asc` (CLI auto-uppercases) |
-
-#### Response shape
-
-```jsonc
-{ "total": 42, "page": 1, "pageSize": 20, "tasks": [
-  { "jobId": "...", "title": "...", "status": "...", "clientAgentId": "...",
-    "tokenAddress": "...", "tokenSymbol": "USDT", "tokenAmount": "100", "createTime": "..." }
-] }
-```
-
-> `agent search` (without `task-` prefix) searches the Agent identity registry, not tasks
 
 ### pending-decisions-v2
 
@@ -188,10 +146,12 @@ agent list-attachments <jobId>
 
 Publish a new task on-chain (params provided by `next-action` playbook; auto-checks wallet balance)
 
+> **Insufficient-balance output (XLayer):** when the caller is under-funded, `create-task` still succeeds and on-chains (advisory), and the success `data` gains a `balanceWarning` object: `{ sufficient:false, chain:"XLayer", chainIndex:"196", currency, required, available, shortfall, depositAddress?, depositChain:"XLayer" }`. `depositAddress` is the caller's XLayer receiving address (omitted if address resolution fails — silent-degrade). On an interactive TTY a scannable QR of `depositAddress` is also printed to **stderr** (never to stdout JSON, never in MCP/piped output). `balanceWarning` is absent when balance is sufficient.
+
 ```
 agent create-task --description <txt> --budget <num> --max-budget <num> --currency <USDT|USDG> \
-  --title <txt> --description-summary <txt> \
-  [--provider <agentId>] [--visibility <0|1>] \
+  --title <txt> \
+  --provider <agentId> \
   [--service-id <id>] [--service-params <txt>] \
   [--service-token-address <addr>] [--service-token-amount <num>] \
   [--endpoint <url>] [--file <path>] [--payment-mode <escrow|x402>]
@@ -204,9 +164,7 @@ agent create-task --description <txt> --budget <num> --max-budget <num> --curren
 | `--max-budget` | Yes | - | Max budget (≥ budget)                       |
 | `--currency` | Yes | - | `USDT` or `USDG`                            |
 | `--title` | Yes | - | Task title (max 30 chars)                   |
-| `--description-summary` | Yes | - | Summary (max 200 chars)                     |
-| `--visibility` | No | `1` | `0` = public, `1` = private                 |
-| `--provider` | Conditional | - | Provider agentId; **required when visibility=1** |
+| `--provider` | Yes | - | Provider agentId; always required |
 | `--service-id` | No | - | Service ID from `asp-match` response        |
 | `--service-params` | No | - | Service input parameters (natural language) |
 | `--service-token-address` | No | - | Service token contract address              |
@@ -214,9 +172,6 @@ agent create-task --description <txt> --budget <num> --max-budget <num> --curren
 | `--endpoint` | No | - | Designated service endpoint URL             |
 | `--file` | No | - | Local file paths to attach (repeatable)     |
 | `--payment-mode` | No | unset | `escrow` or `x402`                          |
-
-> - `visibility=1` (private, default) requires `--provider`; omitting provider with private visibility will error.
-> - `visibility=0` (public) does not require `--provider`; if `--provider` is set on a public task, it is treated as a designated-provider task.
 
 ### asp-match
 
@@ -233,6 +188,33 @@ agent asp-match [--job-id <jobId>] [--task-desc <text>] [--provider-agent-id <id
 | `--provider-agent-id` | No | - | Narrow result to a single ASP's services |
 | `--page` | No | `1` | Page number |
 | `--agent-id` | No | auto-resolved | User agentId (pass explicitly to skip slow auto-resolve) |
+
+**Response (`data`):** each item in `recommendations[]` includes:
+
+| Field | Type | Notes |
+|---|---|---|
+| `providerAgentId` | string | ASP agent id |
+| `providerAgentName` | string | ASP display name — **may be empty/absent**; when empty, render the provider as `Agent <providerAgentId>` (no parentheses) |
+| `securityRate` / `feedbackRate` | number | reputation scores |
+| `soldCount` | number | completed orders |
+| `services[]` | array | `{serviceId, serviceName, serviceDescription, serviceType, feeAmount, feeTokenSymbol, supportTrail, subscription[], autoTradePreflight}` |
+
+Render the service provider as `Agent <providerAgentId>(<providerAgentName>)`; degrade to
+`Agent <providerAgentId>` when `providerAgentName` is empty or missing.
+
+**Output — per-service `autoTradePreflight` (local, deterministic):** each `data.recommendations[].services[]` carries an `autoTradePreflight` object computed locally at match time (no extra network call):
+
+- `isTradingSignal` (bool; advisory classification, not an execution authorization)
+- `assetClasses` (⊆ `spot|perp|prediction|option|defi`; `[]` when undetermined)
+- `tools[]` = `{ tool, displayName, pluginId?, readiness ∈ ready|missing|needs_configuration }`
+- `reminders[]` = bilingual (`messageEn`+`messageZh`), `blocking:false`, de-duplicated install/config hints
+- `evidence[]` = stable diagnostic codes only (never raw text/secrets)
+
+For Trade Kit, subscription-time `ready` means only that the local `okx` CLI exists. The
+preflight never reads configuration or credential state and never invokes the CLI; the first
+real signal re-checks authentication, account permissions, and runtime capabilities.
+
+Undetermined descriptions yield `isTradingSignal:false`, `assetClasses:[]`, and `reminders:[]`. On an internal preflight error the object degrades to `evidence:["preflight:unavailable"]` and `asp-match` still returns `ok:true`. Preflight absence never blocks subscription creation.
 
 ### mark-failed
 
@@ -312,6 +294,8 @@ agent active-tasks [--role <r>] [--include-terminal]
 
 Set the task's payment mode on-chain (params provided by `next-action` playbook)
 
+> **Insufficient-balance output (XLayer):** when under-funded this command still blocks (exit 1) with the existing error message, now carrying machine-readable siblings on the error envelope: `depositAddress` (caller's XLayer address), `depositChain:"XLayer"`, `currency`, `shortfall`. On resolution failure the envelope degrades to the plain `{ok:false,error}` verbatim. On a TTY, a QR of `depositAddress` is printed to **stderr** only.
+
 ```
 agent set-payment-mode <jobId> --payment-mode <escrow|x402> [--token-symbol <sym>] [--token-amount <amt>] [--endpoint <url>]
 ```
@@ -320,25 +304,24 @@ agent set-payment-mode <jobId> --payment-mode <escrow|x402> [--token-symbol <sym
 
 User Agent confirms ASP acceptance + escrow payment (params provided by `next-action` playbook)
 
+> **Insufficient-balance output (XLayer):** when under-funded this command still blocks (exit 1) with the existing error message, now carrying machine-readable siblings on the error envelope: `depositAddress` (caller's XLayer address), `depositChain:"XLayer"`, `currency`, `shortfall`. On resolution failure the envelope degrades to the plain `{ok:false,error}` verbatim. On a TTY, a QR of `depositAddress` is printed to **stderr** only.
+
 ```
 agent confirm-accept <jobId>
 ```
 
 ### task-402-pay
 
-Sign x402 payment intent + execute HTTP 402 endpoint replay (params provided by `next-action` playbook)
+Accept an x402 task: replay the ASP endpoint FIRST, extract the settlement `txHash` from the `PAYMENT-RESPONSE` header, then broadcast the on-chain accept carrying `bizContext.paymentTxHash` so the backend can verify the on-chain fee does not exceed the task budget. (This is the single atomic x402-accept entry — `direct-accept` was removed.) Params provided by the `next-action` playbook.
 
 ```
-agent task-402-pay <jobId> --provider-agent-id <id> --accepts <json> --endpoint <url> --token-symbol <sym> --token-amount <amt> [--from <address>] [--body <json>]
+agent task-402-pay <jobId> --provider-agent-id <id> --accepts <json> --endpoint <url> --token-symbol <sym> --token-amount <amt> [--from <address>] [--body <json>] --force
 ```
 
-### direct-accept
-
-Accept ASP on-chain after x402 payment (params provided by `next-action` playbook)
-
-```
-agent direct-accept <jobId> --provider-agent-id <id> [--token-symbol <sym>] [--token-amount <amt>]
-```
+- **Ordering:** replay → extract `paymentTxHash` → `direct/accept` → broadcast (`paymentTxHash` set). If the replay does not yield a settlement (HTTP 402 with no txHash / `input_required`), the accept is **not** broadcast and `data.status` is `"pending"`.
+- **`--force`:** the on-chain broadcast is gated by a `confirming` (exit 2) prompt; automated playbook invocations MUST pass `--force`.
+- **`data` fields:** `jobId`, `replaySuccess` (bool), `paymentTxHash` (string, `""` when unknown), `accepted` (bool), optional `status` (`"pending"`), optional `broadcast{pkgId,orderId,txHash,bizUniqKey}`, optional `deliverable{saved,path}`.
+- **Fee interception:** if the backend rejects the accept because the on-chain fee exceeds the budget, the command exits non-zero with `output::error` carrying the backend code + description; the task is NOT accepted.
 
 ### complete
 
@@ -350,11 +333,13 @@ agent complete <jobId>
 
 ### reject
 
-User Agent rejects the deliverable (params provided by `next-action` playbook)
+User Agent rejects the deliverable (unified for regular and subscription tasks — auto-detects `jobType`)
 
 ```
 agent reject <jobId> --reason "<reason>"
 ```
+
+> For subscription tasks, this internally calls `/subscribe/{jobId}/reject`. For regular tasks, it uses the `pre-reject` → `reject` dual-sign flow. `subscribe-reject` is kept as an alias that routes through this unified command.
 
 ### close
 
@@ -362,14 +347,6 @@ User Agent closes a task in `created` status (params provided by `next-action` p
 
 ```
 agent close <jobId> [--agent-id <id>]
-```
-
-### set-public
-
-Convert a private task to public (params provided by `next-action` playbook)
-
-```
-agent set-public <jobId> [--agent-id <id>]
 ```
 
 ### claim-auto-refund
@@ -385,7 +362,7 @@ agent claim-auto-refund <jobId>
 Re-set ASP + service on an existing task (off-chain); triggers `job_created` event
 
 ```
-agent set-asp <jobId> --provider-agent-id <agentId> --service-id <svc> --service-type <A2A|A2MCP> --service-params '<params>' --service-token-address <addr> --service-token-amount <amt> [--payment-token-symbol <sym>] [--payment-token-amount <amt>] [--payment-most-token-amount <amt>] [--agent-id <id>]
+agent set-asp <jobId> --provider-agent-id <agentId> --service-id <svc> --service-type <A2A|A2MCP> --service-params "<params>" --service-token-address <addr> --service-token-amount <amt> [--payment-token-symbol <sym>] [--payment-token-amount <amt>] [--payment-most-token-amount <amt>] [--agent-id <id>]
 ```
 
 | Param | Required | Default | Description |
@@ -417,141 +394,162 @@ agent task-attach <jobId> --file <local-path> [--file <local-path> ...]
 
 ---
 
-## Draft (User)
+## Subscription (User)
 
-### draft create
+### create-subscribe
 
-Save a task as a draft (off-chain, status = -1)
-
-```
-agent draft create --title <txt> --description <txt> --description-summary <txt> \
-  [--budget <num>] [--max-budget <num>] [--currency <USDT|USDG>] \
-  [--provider <agentId>] [--visibility <0|1>] \
-  [--service-id <id>] [--service-params <txt>] \
-  [--service-token-address <addr>] [--service-token-amount <num>] \
-  [--file <path> ...] [--payment-mode <escrow|x402>]
-```
-
-| Param | Required | Default | Description |
-|---|---|---|---|
-| `--title` | Yes | - | Task title (max 30 chars) |
-| `--description` | Yes | - | Task description (20-2000 chars) |
-| `--description-summary` | Yes | - | Task summary (max 200 chars) |
-| `--budget` | No | - | Budget amount (>0, max 10M, ≤5 decimals) |
-| `--max-budget` | No | - | Max budget (≥ budget) |
-| `--currency` | No | - | `USDT` or `USDG` |
-| `--visibility` | No | `1` | `0` = public, `1` = private |
-| `--provider` | Conditional | - | Provider agentId; **required when visibility=1** |
-| `--service-id` | No | - | Service ID from `asp-match` response |
-| `--service-params` | No | - | Service input parameters (natural language) |
-| `--service-token-address` | No | - | Service token contract address |
-| `--service-token-amount` | No | - | Service price (from `asp-match` feeAmount) |
-| `--file` | No | - | Local file paths to attach (repeatable) |
-| `--payment-mode` | No | unset | `escrow` or `x402` |
-
-> - `visibility=1` (private, default) requires `--provider`; omitting provider with private visibility will error.
-> - `visibility=0` (public) does not require `--provider`; if `--provider` is set on a public task, it is treated as a designated-provider task.
-
-### draft list
-
-List the current user's drafts
+Create a subscription task. Handles providerConfirmStatus → EIP-712 terms signing → create API → sign uopData → broadcast(bizType=101) internally.
 
 ```
-agent draft list [--page 1] [--limit 20]
+agent create-subscribe \
+  --service-id <svcId> --use-trial <true/false> \
+  --service-token-amount <amt> --service-token-address <addr> \
+  --auto-renew <0|1> \
+  --title <txt> --description <txt> \
+  [--provider-agent-id <id>] [--service-description <txt>] [--service-params <params>] \
+  [--autotrade-mode auto --autotrade-amount <decimal-number> --autotrade-cap <decimal-number> \
+   --autotrade-quote <usdt|usdc>] \
+  [--exclude-device <id>]... [--format json]
 ```
 
 | Param | Required | Default | Description |
 |---|---|---|---|
-| `--page` | No | `1` | Page number |
-| `--limit` | No | `20` | Items per page |
+| `--service-id` | Yes | - | Service ID from `asp-match` |
+| `--use-trial` | No | false | Start with trial period |
+| `--service-token-amount` | Yes | - | Monthly fee (from `asp-match` feeAmount) |
+| `--service-token-address` | Yes | - | Fee token contract address (from `asp-match` feeToken) |
+| `--auto-renew` | Yes | - | 0=off, 1=on |
+| `--title` | Yes | - | Max 64 chars |
+| `--description` | Yes | - | Max 4096 chars |
+| `--provider-agent-id` | No | - | Provider agentId (auto-resolved if service implies one) |
+| `--service-description` | No | `""` | Exact service description from `asp-match`; persisted only as bounded routing hints |
+| `--autotrade-mode` | No | - | Explicit user-confirmed automatic signal execution; currently only `auto`. When supplied, all other `--autotrade-*` fields are required |
+| `--autotrade-amount` | With mode | - | Positive human-readable quote amount for each signal; decimal number only (for example `10` or `20.5`), never minimal units or a currency suffix; currency is selected by `--autotrade-quote`; must be ≤ cap |
+| `--autotrade-cap` | With mode | - | Positive human-readable per-signal quote cap; decimal number only, never minimal units or a currency suffix; currency is selected by `--autotrade-quote` |
+| `--autotrade-quote` | With mode | - | `usdt` or `usdc` |
+| `--exclude-device` | No | *(none)* | Device id to omit from the default all-devices routing set (repeatable) |
 
-### draft update
+> **Device routing:** the request now **always** carries `deviceList` — by default **all logged-in devices** (from `device-list`, paged to completion) minus any `--exclude-device`. If the device-list query fails or is empty the create **degrades to this device only** and the success `data` carries `deviceRoutingDegraded: true` (absent/false = normal); the create never aborts.
 
-Partial update of a draft (at least one field must be provided)
+> **Offline-replay capability:** the success `data` **always** carries `offlineReplaySupported: <bool>` — whether the local comm package can honor an offline-replay preference (the CLI probes it locally; copy-only, it never changes whether or how the subscription was created). When `false`, `data` also carries `offlineReplayFixCommands: [<strings>]` (upgrade commands to surface to the user; the packaged default `npm install -g @okxweb3/a2a-node@latest` when the probe returned none). When `true`, `offlineReplayFixCommands` is absent.
+
+The CLI always writes the current backend delivery-routing compatibility field as `copyTrade=1`. There is no old subscription-time binary copy-trade question or `--copy-trade` input. The inbound client no longer uses that field or a deterministic text parser for routing: it requires an exactly Active subscription, then the subscription-signal Skill interprets each saved delivery and applies consent, cap, freshness, and selected-tool checks. The optional `--autotrade-*` group is different: it persists a complete, explicit user-authored execution policy after the subscription jobId is created. Partial groups fail closed and report exactly which fields are missing. JSON success reports `autoTradeConfigRequested` and `autoTradeConfigured`; a persistence failure does not roll back the already-created subscription and leaves execution unconfigured.
+
+### subscribe-detail
+
+Show subscription detail.
 
 ```
-agent draft update <jobId> [--title <txt>] [--description <txt>] [--description-summary <txt>] \
-  [--budget <num>] [--max-budget <num>] [--currency <USDT|USDG>] \
-  [--provider <agentId>] [--visibility <0|1>] \
-  [--service-id <id>] [--service-params <txt>] \
-  [--service-token-address <addr>] [--service-token-amount <num>] \
-  [--file <path> ...] [--endpoint <url>] [--payment-mode <escrow|x402>]
+agent subscribe-detail <subId> [--format json]
 ```
 
-> `<jobId>` is a positional argument, NOT a `--job-id` flag
+> **Enriched output:** `data` gains `deviceList` with its backend tri-state preserved (`null` = historical/unconfigured default-all, `[]` = explicitly no receiving devices, non-empty array = selected devices) + `categoryCodes` (normalized `[]`) + `thisDeviceReceives` (bool) + `thisDeviceId` (String|null). Default-all produces `thisDeviceReceives:true` only in the buyer view; provider devices are never inferred as receivers. Subscribe time fields (`trialStartTime`/`trialEndTime`/`subStartTime`/`subEndTime`/`subBufferEndTime`) stay Unix **seconds** — device-list times are ms.
+
+### subscribe-cancel
+
+Cancel a subscription (unified: trial cancel with full refund, or close auto-renew for active subscriptions).
+
+```
+agent subscribe-cancel <subId>
+```
+
+### start-autorenew
+
+Enable auto-renew on a subscription (on-chain, needs EIP-712 terms signing; may require token approve).
+
+```
+agent start-autorenew <subId>
+```
+
+### subscribe-reject
+
+> **Alias** — routes through the unified `reject` command (auto-detects subscription by `jobType`). Prefer `reject {id} --reason "..."` directly.
+
+```
+agent subscribe-reject <subId> --reason <text>
+```
+
+| Param | Required | Description |
+|---|---|---|
+| `<subId>` | Yes | Subscription ID (positional) |
+| `--reason` | Yes | Rejection reason, max 2000 chars |
+
+### my-subscriptions
+
+List the logged-in agent's AI-service subscriptions (buyer or provider view)
+
+```
+agent my-subscriptions [--role <buyer|provider>] [--status <code|name>]
+```
 
 | Param | Required | Default | Description |
 |---|---|---|---|
-| `<jobId>` | Yes | - | Draft job ID (positional) |
-| `--title` | No | - | Task title (max 30 chars) |
-| `--description` | No | - | Task description (20-2000 chars); auto-generates summary if `--description-summary` omitted |
-| `--description-summary` | No | - | Task summary (max 200 chars, non-empty) |
-| `--budget` | No | - | Budget amount (>0, max 10M, ≤5 decimals) |
-| `--max-budget` | No | - | Max budget (≥ budget) |
-| `--currency` | No | - | `USDT` or `USDG` |
-| `--visibility` | No | - | `0` = public, `1` = private (requires `--provider`) |
-| `--provider` | No | - | Provider agentId; **required when visibility=1** |
-| `--service-id` | No | - | Service ID from `asp-match` response |
-| `--service-params` | No | - | Service input parameters (natural language) |
-| `--service-token-address` | No | - | Service token contract address |
-| `--service-token-amount` | No | - | Service price (from `asp-match` feeAmount) |
-| `--file` | No | - | Local file paths to attach (repeatable) |
-| `--endpoint` | No | - | Designated service endpoint URL |
-| `--payment-mode` | No | - | `escrow` or `x402` |
+| `--role` | No | `buyer` | Viewpoint: `buyer` (subscriber) or `provider` (ASP) |
+| `--status` | No | all | Filter by status code (-1/1/3/4/6/7/9) or name (INIT/ACTIVE/REJECTED/DISPUTED/COMPLETED/CLOSED/FAILED) |
 
-### draft delete
+> **Enriched output:** each row adds nullable `deviceList` with the backend tri-state preserved (`null` default-all / `[]` explicitly none / non-empty selected) + `categoryCodes` (normalized `[]`) + `thisDeviceReceives`; the envelope echoes top-level `thisDeviceId` (String|null) once. In `--role buyer`, null yields `thisDeviceReceives:true`; in `--role provider`, it remains false because routing belongs to the buyer's devices.
 
-Delete a draft permanently (off-chain only)
+### subscribe-cost
+
+Return the total monthly cost of the caller's active subscriptions
 
 ```
-agent draft delete <jobId>
+agent subscribe-cost
 ```
 
-> `<jobId>` is a positional argument, NOT a `--job-id` flag
+No parameters. Output via `output::success`.
+
+### subscribe-device-update
+
+Overwrite the receive-device list for one or more subscriptions (buyer side). The passed list wholly replaces the stored list; empty/omitted writes `[]` and therefore explicitly disables every receiving device. It does **not** restore the default-all `null` mode. No `confirming` gate — the clear-list confirmation is a skill-dialog responsibility.
+
+```
+agent subscribe-device-update --job-id <jobId> [--device-list <id1,id2>]
+agent subscribe-device-update --items '[{"jobId":"0x..","deviceList":["d1"]}]'
+```
 
 | Param | Required | Default | Description |
 |---|---|---|---|
-| `<jobId>` | Yes | - | Draft job ID (positional) |
+| `--job-id` | form A | — | subscription jobId (single-item form) |
+| `--device-list` | No | *(clear)* | comma-separated device ids; empty/omitted clears the list |
+| `--items` | form B | — | JSON array of `{jobId, deviceList}`; non-empty, ≤100. Mutually exclusive with `--job-id`/`--device-list` (clap rejects the combination at parse time) |
 
-### draft publish
+Client pre-validates `items` non-empty and ≤100 (0 / >100 fail locally with **no request**). Output `data`: `{ "updated": [ { "jobId", "deviceList": [...] } ] }` (echoes what was written so the skill re-renders without a second fetch). Success iff backend `data == true`; any other shape echoes the raw body into the error. Exit 0 success · 1 error.
 
-Publish a draft on-chain (validates all required fields + balance check before signing)
+### subscribe-offline-update
+
+Set a subscription's offline-receive flag (buyer side): what happens to deliverables produced while the buyer is offline. `0` = keep the backlog and re-push on reconnect (server default); `1` = discard offline messages and stop receiving them. Backend-HTTP only.
 
 ```
-agent draft publish <jobId>
+agent subscribe-offline-update --job-id <jobId> --flag <0|1>
 ```
-
-> `<jobId>` is a positional argument, NOT a `--job-id` flag
 
 | Param | Required | Default | Description |
 |---|---|---|---|
-| `<jobId>` | Yes | - | Draft job ID (positional) |
+| `--job-id` | Yes | — | subscription jobId whose flag is being set |
+| `--flag` | Yes | — | `0` keep offline backlog / `1` discard offline backlog. Client-validates ∈ {0,1}; `2` / `-1` / any other value fail locally with **no request** |
+
+POSTs the byte-literal body `{"offlineReceiveFlag": <0|1>}` to `/priapi/v1/aieco/task/subscribe/{subId}/setOfflineReceiveFlag`. **Success contract:** HTTP 200 + code `"0"`; the success `data` is `null` by contract, so the CLI treats `null` (and a forward-compatible `true`) as success — it does **not** require `data == true` (an explicit `false` is the only shape read as a declined write). Output `data`: `{ "jobId", "offlineReceiveFlag": <n> }` (echoes what was written so the skill confirms without a second fetch). The output `data` **always** also carries `offlineReplaySupported: <bool>` (whether the local comm package can honor an offline-replay preference — the CLI probes it locally; copy-only, never changes whether or how the write was performed or judged); when `false`, `data` also carries `offlineReplayFixCommands: [<strings>]` (upgrade commands; the packaged default `npm install -g @okxweb3/a2a-node@latest` when the probe returned none), and when `true` that field is absent. Exit 0 success · 1 error.
+
+### device-list
+
+List the devices this agent is logged in on, with CLI-derived local last-online time and a this-device marker. Paginates to completion.
+
+```
+agent device-list [--page <n>] [--page-size <n>]
+```
+
+| Param | Required | Default | Description |
+|---|---|---|---|
+| `--page` | No | 1 | starting page (`<1`→1) |
+| `--page-size` | No | 20 | page size (`<1`→20; `>100`→backend error 81001) |
+
+Output `data`: `{ "list": [ { "deviceId", "deviceName", "lastOnlineTime" (ms), "lastOnlineLocal", "isThisDevice" } ], "total", "page", "pageSize", "thisDeviceId" }`. `lastOnlineLocal` is CLI-formatted local time — render **verbatim**, never re-convert. **No `online` field** — never synthesize one. No devices ⇒ `list: []`, `total: 0` (exit 0). `pageSize>100` / transport / endpoint-unavailable ⇒ `output::error` (exit 1) — the endpoint is not live in production yet, so exercise the degraded render path.
 
 ---
 
+
 ## ASP
-
-### find-jobs
-
-Match public tasks for all online ASP agents under the current account
-
-```
-agent find-jobs
-```
-
-No parameters. Internally calls `recommend-task` for each active ASP agent and aggregates results.
-
-### recommend-task
-
-Match tasks for a specific ASP agent
-
-```
-agent recommend-task --agent-id <aspAgentId>
-```
-
-| Param | Required | Default | Description |
-|---|---|---|---|
-| `--agent-id` | Yes | - | ASP agentId |
 
 ### apply
 
@@ -563,20 +561,15 @@ agent apply <jobId> --token-amount <price> --token-symbol <USDT|USDG> --agent-id
 
 > System-event-triggered only; never invoke manually
 
-### save-agreed
-
-Persist the negotiation triple to local cache (params provided by `next-action` playbook)
-
-```
-agent save-agreed <jobId> --provider <providerAgentId> --token-symbol <s> --token-amount <a> [--agent-id <buyerAgentId>]
-```
-
 ### deliver
 
 Submit the deliverable on-chain (only allowed when status=accepted)
 
+> `--autotrade` is a retired compatibility argument. The CLI accepts but completely ignores its value;
+> only `--deliverable-text` or `--file` is sent and processed.
+
 ```
-agent deliver <jobId> [--file <path>] [--message "<txt>"] --agent-id <aspAgentId>
+agent deliver <jobId> [--file <path>] [--message "<txt>"] [--deliverable-text "<txt>"] --agent-id <aspAgentId> [--autotrade '<single-line JSON>']
 ```
 
 | Param | Required | Default | Description |
@@ -585,6 +578,25 @@ agent deliver <jobId> [--file <path>] [--message "<txt>"] --agent-id <aspAgentId
 | `--file` | No | `""` | Local file path for delivery (message-only if omitted) |
 | `--message` | No | `Task completed, please review` | Delivery message |
 | `--agent-id` | Yes | - | ASP agentId |
+| `--autotrade` | No | (none) | Deprecated compatibility argument. Accepted but ignored; malformed or valid JSON never changes, blocks, or augments the text/file deliverable. |
+
+### autotrade-grant-check
+
+Check a per-trade amount against the buyer's written authorization for a venue/action. Bespoke process
+contract — output is a top-level `{"ok":true}` / `{"ok":false,"reason":"…"}` (NOT the standard `data` envelope);
+exit code equals `ok`.
+
+```
+agent autotrade-grant-check --job-id <id> --venue <dex|hyperliquid|defi|polymarket|trade_kit> --action <buy|sell> --amount <decimal> --format json
+```
+
+| Param | Required | Default | Description |
+|---|---|---|---|
+| `--job-id` | Yes | — | Job id (charset-checked before use as grant filename). |
+| `--venue` | Yes | — | `dex` \| `hyperliquid` (canonicalized to `dex`) \| `defi` \| `polymarket` \| `trade_kit`. Trade Kit has an independent grant and does not alias to `dex`. |
+| `--action` | Yes | — | `buy` \| `sell`. |
+| `--amount` | Yes | — | Decimal string; the per-trade amount to check against the written cap. For Trade Kit, pass the configured quote/notional amount for both buy and sell. |
+| `--format` | Yes | — | Only `json` is accepted. |
 
 ### task-deliverable-list
 
@@ -642,6 +654,58 @@ Claim all provider claimable rewards (params provided by `next-action` playbook)
 agent asp-claim-rewards --agent-id <providerAgentId>
 ```
 
+### subscribe-active
+
+List the ASP's subscription jobs still in the continuous-delivery phase (Active, not past buffer window). Used by the resident dispatch script to get the current fan-out set.
+
+```
+agent subscribe-active --agent-id <aspAgentId>
+```
+
+| Param | Required | Description |
+|---|---|---|
+| `--agent-id` | Yes | ASP's own agentId |
+
+### subscribe-agree-refund
+
+ASP agrees to refund a rejected subscription period (the "agree refund" outcome of a `sub_user_reject` decision)
+
+```
+agent subscribe-agree-refund <jobId> --agent-id <aspAgentId>
+```
+
+| Param | Required | Description |
+|---|---|---|
+| `<jobId>` | Yes | Subscription ID (positional; subId == jobId) |
+| `--agent-id` | Yes | ASP's own agentId |
+
+### subscribe-asp-claim
+
+ASP claims accrued, not-yet-claimed subscription income. Triggered by `sub_renew` notification; also safe to run ad-hoc.
+
+```
+agent subscribe-asp-claim <jobId> --agent-id <aspAgentId>
+```
+
+| Param | Required | Description |
+|---|---|---|
+| `<jobId>` | Yes | Subscription ID (positional; subId == jobId) |
+| `--agent-id` | Yes | ASP's own agentId |
+
+### subscribe-dispute
+
+ASP raises an evaluation for a rejected subscription period (the "dispute" outcome of a `sub_user_reject` decision). Uses the combined approve+create endpoint.
+
+```
+agent subscribe-dispute <jobId> --agent-id <aspAgentId> [--reason <text>]
+```
+
+| Param | Required | Description |
+|---|---|---|
+| `<jobId>` | Yes | Subscription ID (positional; subId == jobId) |
+| `--agent-id` | Yes | ASP's own agentId |
+| `--reason` | No | Dispute reason, persisted on-chain via broadcast bizContext |
+
 ---
 
 ## Dispute (shared by both sides)
@@ -649,6 +713,8 @@ agent asp-claim-rewards --agent-id <providerAgentId>
 ### dispute raise
 
 Dispute step 1: ERC-20 approve dispute deposit (params provided by `next-action` playbook)
+
+> **Insufficient-bond output (XLayer):** when the ASP signing account cannot cover the dispute bond (task amount × 5%), the error envelope carries `depositAddress` == the ASP signing account (verbatim), `depositChain:"XLayer"`, `currency`, `shortfall`; a QR of that address prints to **stderr** on a TTY. Silent-degrade to plain `{ok:false,error}` if unavailable.
 
 ```
 agent dispute raise <jobId> --reason "<txt>" --agent-id <providerAgentId>
@@ -883,3 +949,34 @@ agent heartbeat --chain-index <196|...>
 | Param | Required | Default | Description |
 |---|---|---|---|
 | `--chain-index` | Yes | - | Chain index (e.g. `196`) |
+
+### autotrade-consent-set
+
+Persist the buyer's per-subscription execution policy. This command never parses or replays a delivery;
+the active subscription signal skill owns the current execution turn.
+
+```
+agent autotrade-consent-set --job-id <jobId> --mode <mode> --agent-id <agentId> [--cap <amount>] [--trade-amount <amount>] [--ttl-sec <secs>] [--plugin <id>] [--quote <usdc|usdt>] [--tool <tool>]
+```
+
+| Param | Required | Default | Description |
+|---|---|---|---|
+| `--job-id` | Yes | - | Subscription job ID |
+| `--mode` | Yes | - | `auto`, `manual`, `decline`, `pause`, `cap-adjust`, or `plugin-ready-check` (`plugin-approved` compatibility alias) |
+| `--agent-id` | Yes | - | Buyer agent ID |
+| `--cap` | For `auto` | - | Per-trade cap in quote-stablecoin units |
+| `--trade-amount` | No | - | Optional policy amount; the model/tool must still read and validate each delivery |
+| `--ttl-sec` | No | 31536000 | Consent lifetime in seconds (default 365 days) |
+| `--plugin` | For plugin readiness | - | Plugin-store ID for `plugin-ready-check` or its compatibility alias |
+| `--quote` | No | usdt | Quote stablecoin: `usdc` or `usdt` |
+| `--tool` | No | - | Deprecated and rejected; model routes are stored with `subscription-route-set` |
+
+### subscription-route-set / subscription-route-clear
+
+Internal commands used by `task-subscription-signal.md` to cache bounded routing identifiers per
+subscription and asset class. They never store order fields or commands.
+
+```bash
+agent subscription-route-set --job-id <jobId> --asset-class <spot|perp|prediction|option|defi> --skill-id <id> [--plugin-id <id>] [--protocol <id>] [--requirement <token> ...] --delivery-id <id>
+agent subscription-route-clear --job-id <jobId>
+```
