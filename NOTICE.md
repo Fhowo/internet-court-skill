@@ -43,6 +43,7 @@ the Internet Court–authored parts (the root `SKILL.md` router and
 | starknet | [keep-starknet-strange/starknet-agentic](https://github.com/keep-starknet-strange/starknet-agentic) | MIT | Copyright (c) 2026 Keep Starknet Strange | starknet-defi, starknet-identity, starknet-js, starknet-wallet |
 | tempo | [tempoxyz/mpp](https://github.com/tempoxyz/mpp) | Apache-2.0 | the copyright owner that is granting the License. | mppx |
 | terminalskills | [TerminalSkills/skills](https://github.com/TerminalSkills/skills) | Apache-2.0 | the copyright owner that is granting the License. | a2a-protocol |
+| yellow | [layer-3/nitrolite](https://github.com/layer-3/nitrolite) | MIT | Copyright (c) 2026 Yellow | yellow-settlement-room |
 
 ## About `LicenseRef-NoLicense`
 
