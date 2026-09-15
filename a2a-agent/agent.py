@@ -84,12 +84,25 @@ class LocalResearchExecutor(AgentExecutor):
 
             await event_queue.enqueue_event(task)
 
-            response = (
-                "Research note: the submitted topic is "
-                f"'{request_text}'. A useful next step is to define the claim, "
-                "identify local evidence to examine, and record the result with "
-                "its assumptions."
-            )
+            topic = request_text.lower()
+
+            if any(word in topic for word in ["a2a", "agent-to-agent", "internet court", "internet-court", "trust level", "dispute"]):
+                response = (
+                    f"Internet Court research note for: '{request_text}'. "
+                    "Start with discovery: identify the counterparty, endpoint, "
+                    "resource, claimed deliverable, cost, and available evidence. "
+                    "Then identify the appropriate trust level and what could go "
+                    "wrong. Do not commit funds, sign, or transact until the user "
+                    "has chosen a trust level and the required authority exists. "
+                    "For disputes, define the trigger, accepted evidence, decision "
+                    "process, finality, and any consequences."
+                )
+            else:
+                response = (
+                    "Research note: the submitted topic is "
+                    f"'{request_text}'. Define the claim, identify evidence, "
+                    "record assumptions, and consider risks before taking action."
+                )
 
             await event_queue.enqueue_event(
                 new_text_status_update_event(
