@@ -20,7 +20,7 @@ from a2a.types.a2a_pb2 import (
     Task,
 )
 
-LOCAL_BASE_URL = "https://laughing-fishstick-76p9gj5gx9p3pg66-8000.app.github.dev"
+LOCAL_BASE_URL = "https://internet-court-skill.onrender.com"
 
 agent_card = AgentCard(
     name="My Internet Court Agent",
